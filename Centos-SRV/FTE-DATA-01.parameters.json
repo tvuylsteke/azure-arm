@@ -8,9 +8,6 @@
     "adminUsername": {
       "value": "azadmin"
     },
-    "adminPassword": {
-      "value": "Admin@Azure01"
-    },
 	"vnetRG": {
 		"value": "FTE_Networking"
 	},

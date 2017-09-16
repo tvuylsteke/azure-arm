@@ -37,13 +37,20 @@
       "metadata": {
         "description": "Name of the Subnet."
       }
+    },    
+    "vmSize": {
+      "type": "string",
+      "defaultValue" : "Standard_B1ms",
+      "metadata": {
+        "description": "VM Size: Standard_B1ms, Standard_A1_v2, ... "
+      }
     },
     "diagnosticStorageAccount": {
       "type": "string",
       "metadata": {
         "description": "Storage Account for the VM diagnostics."
       }
-	}
+	  }
   },
   "variables": {
     "diagnosticStorageAccount": "[parameters('diagnosticStorageAccount')]",
@@ -51,7 +58,7 @@
     "imageOffer": "CentOS",
 	  "imageVersion": "7.3",        
     "vmName": "[parameters('vmName')]",
-    "vmSize": "Standard_A1_v2",
+    "vmSize": "[parameters('vmSize')]",
     "subnetName": "[parameters('subnetName')]",
     "nicName": "[concat(parameters('vmName'),'-Nic1')]",
     "virtualNetworkName": "[parameters('vnetName')]",
