@@ -40,7 +40,7 @@
     },    
     "vmSize": {
       "type": "string",
-      "defaultValue" : "Standard_B1ms",
+      "defaultValue" : "Standard_A0",
       "metadata": {
         "description": "VM Size: Standard_B1ms, Standard_A1_v2, ... "
       }
@@ -135,7 +135,7 @@
     "type": "Microsoft.Resources/deployments",
     "name": "SetStaticIP",
     "dependsOn": [
-      "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC0'))]"
+      "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
     ],    
     "properties": {
       "mode": "Incremental",
@@ -159,7 +159,7 @@
         "resources": [
             {
                 "apiVersion": "2016-03-30",
-                "name": "[concat(parameters('vmName'),'-NIC','0')]",
+                "name": "[variables('nicName')]",
                 "location":"[resourceGroup().location]",
                 "type": "Microsoft.Network/networkInterfaces",
                 "properties": {
@@ -168,7 +168,7 @@
                         "name": "ipconfig1",
                         "properties": {
                           "privateIPAllocationMethod": "Static",
-                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', parameters('vmName'), '-NIC0')).ipConfigurations[0].properties.privateIPAddress]",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('nicName'))).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
                              "id": "[variables(concat('SubnetRef','-NIC','0'))]"
                             }

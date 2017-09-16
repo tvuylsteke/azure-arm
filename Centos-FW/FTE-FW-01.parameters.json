@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "vmName": {
-      "value": "FTE-FW-05"
+      "value": "FTE-FW-01"
     },
     "adminUsername": {
       "value": "azadmin"
