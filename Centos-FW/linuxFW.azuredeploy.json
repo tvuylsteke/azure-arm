@@ -1,0 +1,276 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+	"vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name for the Virtual Machine."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "User name for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the VNET."
+      }
+    },
+	"vnetRG": {
+      "type": "string",
+      "metadata": {
+        "description": "RG of the VNET."
+      }
+    },
+    "subnetNameNIC0": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Subnet for DMZ outside."
+      }
+    },
+    "subnetNameNIC1": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Subnet for DMZ inside."
+      }
+    },
+    "subnetNameNIC2": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Subnet for Management."
+      }
+    },
+    "diagnosticStorageAccount": {
+      "type": "string",
+      "metadata": {
+        "description": "Storage Account for the VM diagnostics."
+      }
+	}	
+  },
+  "variables": {
+    "diagnosticStorageAccount": "[parameters('diagnosticStorageAccount')]",
+    "imagePublisher": "OpenLogic",
+    "imageOffer": "CentOS",
+	  "imageVersion": "7.3",        
+    "vmName": "[parameters('vmName')]",
+    "vmSize": "Standard_A4_v2",        
+    "virtualNetworkName": "[parameters('vnetName')]",
+    "vnetID": "[resourceId(parameters('vnetRG'), 'Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",	
+    "subnetRef-NIC0": "[concat(variables('vnetID'),'/subnets/',parameters('subnetNameNIC0'))]",
+    "subnetRef-NIC1": "[concat(variables('vnetID'),'/subnets/',parameters('subnetNameNIC1'))]",
+    "subnetRef-NIC2": "[concat(variables('vnetID'),'/subnets/',parameters('subnetNameNIC2'))]"
+  },
+  "resources": [   
+	{
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(parameters('vmName'),'-NIC2')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [                
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {			   
+              "PrivateIpAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables(concat('subnetRef-NIC','2'))]"
+              }
+            }
+          }
+        ]
+      }
+    },    
+    {
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(parameters('vmName'),'-NIC',copyIndex())]",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "niccopy",
+        "count": 2
+      },
+      "dependsOn": [                
+      ],
+      "properties": {
+        "enableIPForwarding": true,
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {			  
+              "PrivateIpAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables(concat('subnetRef-NIC',copyIndex()))]"
+              }
+            }
+          }
+        ]
+      }
+    },    
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC0'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC1'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC2'))]"        
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC0'))]",
+              "properties": { "primary": true }
+            },
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC1'))]",
+              "properties": { "primary": false }
+            },
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC2'))]",
+              "properties": { "primary": false }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+          }
+        }
+      }
+    },
+   {
+    "apiVersion": "2017-06-01",
+    "type": "Microsoft.Resources/deployments",
+    "name": "SetStaticIP",
+    "dependsOn": [
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC0'))]",
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC1'))]",
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(parameters('vmName'),'-NIC2'))]"
+    ],    
+    "properties": {
+      "mode": "Incremental",
+      "parameters": {
+          "vmName": {            
+            "value": "[parameters('vmName')]"            
+          }
+      },
+      "template": {
+        "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+        "contentVersion": "1.0.0.0",
+        "parameters": {
+          "vmName": {
+            "type": "string",            
+            "metadata": {
+              "description": "Name for the Virtual Machine."
+            }
+          }
+        },
+        "variables": {},
+        "resources": [
+            {
+                "apiVersion": "2016-03-30",
+                "name": "[concat(parameters('vmName'),'-NIC','0')]",
+                "location":"[resourceGroup().location]",
+                "type": "Microsoft.Network/networkInterfaces",
+                "properties": {
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig1",
+                        "properties": {
+                          "privateIPAllocationMethod": "Static",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', parameters('vmName'), '-NIC0')).ipConfigurations[0].properties.privateIPAddress]",
+                          "subnet": {
+                             "id": "[variables(concat('SubnetRef','-NIC','0'))]"
+                            }
+                        }
+                      }
+                    ]          
+                }
+            },
+             {
+                "apiVersion": "2016-03-30",
+                "name": "[concat(parameters('vmName'),'-NIC','1')]",
+                "location":"[resourceGroup().location]",
+                "type": "Microsoft.Network/networkInterfaces",
+                "properties": {
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig1",
+                        "properties": {
+                          "privateIPAllocationMethod": "Static",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', parameters('vmName'), '-NIC1')).ipConfigurations[0].properties.privateIPAddress]",
+                          "subnet": {
+                             "id": "[variables(concat('SubnetRef','-NIC','1'))]"
+                            }
+                        }
+                      }
+                    ]          
+                }
+            } ,
+             {
+                "apiVersion": "2016-03-30",
+                "name": "[concat(parameters('vmName'),'-NIC','2')]",
+                "location":"[resourceGroup().location]",
+                "type": "Microsoft.Network/networkInterfaces",
+                "properties": {
+                    "ipConfigurations": [
+                      {
+                        "name": "ipconfig1",
+                        "properties": {
+                          "privateIPAllocationMethod": "Static",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', parameters('vmName'), '-NIC2')).ipConfigurations[0].properties.privateIPAddress]",
+                          "subnet": {
+                             "id": "[variables(concat('SubnetRef','-NIC','2'))]"
+                            }
+                        }
+                      }
+                    ]          
+                }
+            }                           
+        ],
+        "outputs": {}
+        }
+      }
+  }
+],
+"outputs": {
+    "sshCommand": {
+      "type": "string",
+      "value": "[concat('ssh ', parameters('adminUsername'), '@', reference(concat('Microsoft.Network/networkInterfaces/', parameters('vmName'), '-NIC', '2')).ipConfigurations[0].properties.privateIPAddress)]"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName": {
+      "value": "FTE-FW-05"
+    },
+    "adminUsername": {
+      "value": "azadmin"
+    },
+    "adminPassword": {
+      "value": "Admin@Azure01"
+    },
+	"vnetRG": {
+		"value": "FTE_Networking"
+	},
+	"vnetName": {
+      "value": "FTE-NET"   
+    },
+    "subnetNameNIC0": {
+      "value": "Pub-DMZ-OUT"      
+    },
+    "subnetNameNIC1": {
+      "value": "Pub-DMZ-IN"      
+    },
+    "subnetNameNIC2": {
+      "value": "Management"      
+    },
+    "diagnosticStorageAccount": {
+      "value": "ftenetworklab"      
+	}
+  }
+}

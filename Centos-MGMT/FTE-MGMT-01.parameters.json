@@ -1,0 +1,33 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmName": {
+      "value": "FTE-MGMT-01"
+    },
+    "adminUsername": {
+      "value": "azadmin"
+    },
+    "adminPassword": {
+      "value": "Admin@Azure01"
+    },
+	"vnetRG": {
+		"value": "FTE_Networking"
+	},
+	"vnetName": {
+      "value": "FTE-NET"   
+    },
+    "subnetName": {
+      "value": "Management"      
+    },
+    "privateIP": {
+      "value": "10.0.0.132"      
+    },
+	"PublicIPDNSLabelPrefix": {
+	  "value": "fte-mgmt-01"
+	},
+    "diagnosticStorageAccount": {
+      "value": "ftenetworklab"      
+	}
+  }
+}
