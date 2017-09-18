@@ -15,10 +15,10 @@
       "value": "FTE-NET"   
     },
     "subnetNameNIC0": {
-      "value": "Pub-DMZ-OUT"      
+      "value": "PubDMZOUT"      
     },
     "subnetNameNIC1": {
-      "value": "Pub-DMZ-IN"      
+      "value": "PubDMZIN"      
     },
     "subnetNameNIC2": {
       "value": "Management"      

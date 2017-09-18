@@ -60,7 +60,7 @@
     "vmName": "[parameters('vmName')]",
     "vmSize": "[parameters('vmSize')]",
     "subnetName": "[parameters('subnetName')]",
-    "nicName": "[concat(parameters('vmName'),'-Nic1')]",
+    "nicName": "[concat(parameters('vmName'),'-NIC1')]",
     "virtualNetworkName": "[parameters('vnetName')]",
     "vnetID": "[resourceId(parameters('vnetRG'), 'Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",	
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]"
@@ -170,7 +170,7 @@
                           "privateIPAllocationMethod": "Static",
                           "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('nicName'))).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
-                             "id": "[variables(concat('SubnetRef','-NIC','0'))]"
+                             "id": "[variables('SubnetRef')]"
                             }
                         }
                       }

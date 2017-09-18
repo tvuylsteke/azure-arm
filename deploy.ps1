@@ -1,5 +1,5 @@
 $adminPassword = read-host "AdminPassword" -AsSecureString
-$resourceGroupName = "FTE_Netw_Lab"
+$resourceGroupName = "FTE_Networking"
 $location = "West Europe"
 New-AzureRmResourceGroup -Name $resourceGroupName -Location $location
 #VNET

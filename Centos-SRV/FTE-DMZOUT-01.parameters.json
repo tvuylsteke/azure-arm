@@ -15,7 +15,7 @@
       "value": "FTE-NET"   
     },
     "subnetName": {
-      "value": "Pub-DMZ-OUT"      
+      "value": "PubDMZOUT"      
     },
     "diagnosticStorageAccount": {
       "value": "ftenetworklab"      
