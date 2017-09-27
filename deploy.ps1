@@ -22,3 +22,20 @@ New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "
 New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "Server_VMs" -TemplateFile .\Centos-SRV\linuxSRV.azuredeploy.json -TemplateParameterFile .\Centos-SRV\FTE-DMZOUT-01.parameters.json -adminPassword $adminPassword
 
 New-AzureRmResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name "Server_VMs" -TemplateFile .\Centos-SRV\linuxSRV.azuredeploy.json -TemplateParameterFile .\Centos-SRV\FTE-DMZIN-01.parameters.json -adminPassword $adminPassword
+
+#alternative way to deploy from a template but specify all parameters in PowerShell
+$subnets = @(
+	@{name="Web";addressPrefix="10.1.1.0/24"};
+	@{name="Business";addressPrefix="10.1.2.0/24"};
+	@{name="Data";addressPrefix="10.1.3.0/24"};
+	@{name="Management";addressPrefix="10.1.4.0/24"};
+	@{name="GatewaySubnet";addressPrefix="10.1.0.0/24"}
+	)
+	
+$params = @{ 
+	vnetName = "FTA-NET1-VNET"; 
+	vnetAddressPrefix = "10.1.0.0/16"; 
+	subnets = $subnets
+}
+
+New-AzureRmResourceGroupDeployment -Name "VNETA" -ResourceGroupName "FTA-VNETPeering-rg" -TemplateUri https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/VNET/VNET.azuredeploy.json -TemplateParameterObject $params
