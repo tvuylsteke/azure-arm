@@ -1,3 +1,5 @@
 Deploy a VNET by specifying the Name, Addressrange and Subnets
 
-[![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/)
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Ftvuylsteke%2Fazure-arm%2Fmaster%2FVNET%2FVNET.azuredeploy.json" target="_blank">
+    <img src="http://azuredeploy.net/deploybutton.png"/>
+</a>
