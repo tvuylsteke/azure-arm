@@ -4,7 +4,7 @@
   "parameters": {
     "storageAccountName": {
         "type": "string",
-        "defaultValue": "ftenetworklab"
+        "defaultValue": "ftanetworklab"
     },
     "storageAccountType": {
       "type": "string",
