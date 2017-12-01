@@ -58,7 +58,8 @@
     "imagePublisher": "OpenLogic",
     "imageOffer": "CentOS",
     "imageVersion": "7.3",        
-    "vmName": "[concat(parameters('envPrefixName'), 'Router')]",
+    "routerVmName": "[concat(parameters('envPrefixName'), 'router')]",
+    "routerPublicIP": "[concat(parameters('envPrefixName'), 'routerpip')]",
     "vmSize": "Standard_A4_v2",            
     "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",    
     "subnetRef-NIC0": "[concat(variables('vnetID'),'/subnets/','Network-In')]",
@@ -76,7 +77,6 @@
             "[variables('vnetAddressPrefix')]"
           ]
         },
-
         "copy": [
           {
             "name": "subnets",
@@ -90,12 +90,12 @@
           }
         ]        
       }
-    },    
+    }, 
     {
-      "apiVersion": "2017-04-01",   
-      "type": "Microsoft.Network/networkInterfaces",
-      "name": "[concat(variables('vmName'),'-NIC',copyIndex())]",
-      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(variables('routerPublicIP'),'-PIP',copyIndex())]",
+      "location": "[resourceGroup().location]",     
       "copy": {
         "name": "niccopy",
         "count": 2
@@ -104,11 +104,31 @@
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
       ],
       "properties": {
+          "publicIPAllocationMethod": "Dynamic"
+      }
+  },   
+    {
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('routerVmName'),'-NIC',copyIndex())]",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "niccopy",
+        "count": 2
+      },
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP')),'-PIP0')]",
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP')),'-PIP1')]"
+      ],
+      "properties": {
         "enableIPForwarding": true,
         "ipConfigurations": [
           {
             "name": "ipconfig1",
             "properties": {			  
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),'-PIP',copyindex()))]"
+              },
               "PrivateIpAllocationMethod": "Dynamic",
               "subnet": {
                 "id": "[variables(concat('subnetRef-NIC',copyIndex()))]"
@@ -133,11 +153,11 @@
     {
       "apiVersion": "2017-03-30",
       "type": "Microsoft.Compute/virtualMachines",
-      "name": "[variables('vmName')]",
+      "name": "[variables('routerVmName')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [        
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC0'))]",
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC1'))]",        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC1'))]",        
         "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
       ],
       "properties": {
@@ -145,7 +165,7 @@
           "vmSize": "[variables('vmSize')]"
         },
         "osProfile": {
-          "computerName": "[variables('vmName')]",
+          "computerName": "[variables('routerVmName')]",
           "adminUsername": "[parameters('username')]",
           "adminPassword": "[parameters('password')]"
         },
@@ -163,11 +183,11 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC0'))]",
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",
               "properties": { "primary": true }
             },
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC1'))]",
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC1'))]",
               "properties": { "primary": false }
             }
           ]
@@ -185,21 +205,21 @@
     "type": "Microsoft.Resources/deployments",
     "name": "SetStaticIP",
     "dependsOn": [
-      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC0'))]",
-      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('vmName'),'-NIC1'))]"      
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC1'))]"      
     ],    
     "properties": {
       "mode": "Incremental",
       "parameters": {
-          "vmName": {            
-            "value": "[variables('vmName')]"            
+          "routerVmName": {            
+            "value": "[variables('routerVmName')]"            
           }
       },
       "template": {
         "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
         "contentVersion": "1.0.0.0",
         "parameters": {
-          "vmName": {
+          "routerVmName": {
             "type": "string",            
             "metadata": {
               "description": "Name for the Virtual Machine."
@@ -210,7 +230,7 @@
         "resources": [
             {
                 "apiVersion": "2016-03-30",
-                "name": "[concat(variables('vmName'),'-NIC','0')]",
+                "name": "[concat(variables('routerVmName'),'-NIC','0')]",
                 "location":"[resourceGroup().location]",
                 "type": "Microsoft.Network/networkInterfaces",
                 "properties": {
@@ -219,7 +239,7 @@
                         "name": "ipconfig1",
                         "properties": {
                           "privateIPAllocationMethod": "Static",
-                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('vmName'), '-NIC0')).ipConfigurations[0].properties.privateIPAddress]",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('routerVmName'), '-NIC0')).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
                              "id": "[variables(concat('SubnetRef','-NIC0'))]"
                             }
@@ -230,7 +250,7 @@
             },
              {
                 "apiVersion": "2016-03-30",
-                "name": "[concat(variables('vmName'),'-NIC','1')]",
+                "name": "[concat(variables('routerVmName'),'-NIC','1')]",
                 "location":"[resourceGroup().location]",
                 "type": "Microsoft.Network/networkInterfaces",
                 "properties": {
@@ -239,7 +259,7 @@
                         "name": "ipconfig1",
                         "properties": {
                           "privateIPAllocationMethod": "Static",
-                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('vmName'), '-NIC1')).ipConfigurations[0].properties.privateIPAddress]",
+                          "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('routerVmName'), '-NIC1')).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
                              "id": "[variables(concat('SubnetRef','-NIC1'))]"
                             }
