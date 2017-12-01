@@ -117,6 +117,7 @@
         "count": 2
       },
       "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
       ],
       "properties": {
         "enableIPForwarding": true,
