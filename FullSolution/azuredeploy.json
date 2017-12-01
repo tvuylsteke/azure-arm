@@ -117,8 +117,6 @@
         "count": 2
       },
       "dependsOn": [ 
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP0'))]",
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP1'))]"
       ],
       "properties": {
         "enableIPForwarding": true,
@@ -126,9 +124,6 @@
           {
             "name": "ipconfig1",
             "properties": {			  
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),'-PIP',copyindex()))]"
-              },
               "PrivateIpAllocationMethod": "Dynamic",
               "subnet": {
                 "id": "[variables(concat('subnetRef-NIC',copyIndex()))]"
@@ -206,7 +201,9 @@
     "name": "SetStaticIP",
     "dependsOn": [
       "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",
-      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC1'))]"      
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC1'))]",
+      "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP0'))]",
+      "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP1'))]"      
     ],    
     "properties": {
       "mode": "Incremental",
@@ -238,6 +235,9 @@
                       {
                         "name": "ipconfig1",
                         "properties": {
+                          "publicIPAddress": {
+                            "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),'-PIP0'))]"
+                          },
                           "privateIPAllocationMethod": "Static",
                           "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('routerVmName'), '-NIC0')).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
@@ -258,6 +258,9 @@
                       {
                         "name": "ipconfig1",
                         "properties": {
+                          "publicIPAddress": {
+                            "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),'-PIP1'))]"
+                          },
                           "privateIPAllocationMethod": "Static",
                           "privateIPAddress": "[reference(concat('Microsoft.Network/networkInterfaces/', variables('routerVmName'), '-NIC1')).ipConfigurations[0].properties.privateIPAddress]",
                           "subnet": {
