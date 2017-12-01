@@ -117,8 +117,8 @@
         "count": 2
       },
       "dependsOn": [ 
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP')),'-PIP0')]",
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP')),'-PIP1')]"
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP0'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP1'))]"
       ],
       "properties": {
         "enableIPForwarding": true,
