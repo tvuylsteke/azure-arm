@@ -254,10 +254,6 @@
       }
   }
 ],
-"outputs": {
-    "sshCommand": {
-      "type": "string",
-      "value": "[concat('ssh ', parameters('username'), '@', reference(concat('Microsoft.Network/networkInterfaces/', variables('vmName'), '-NIC', '2')).ipConfigurations[0].properties.privateIPAddress)]"
-    }
+"outputs": {    
   }
 }
