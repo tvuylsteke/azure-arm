@@ -22,7 +22,16 @@
         "metadata": {
             "description": "IaaS VM local administrator password"
         }
-    }    
+    },
+    "ShutdownTimeZone": {
+      "devaultValue" : "Romance Standard Time",
+      "allowedValues": ["Romance Standard Time"],
+      "type": "string"    
+    },
+    "ShutdownTime": {
+      "devaultValue" : "1900",
+      "type": "string"    
+    }
   },
   "variables": {
     "apiVersion": "2017-06-01",
@@ -230,6 +239,29 @@
         }
       }
     },
+    {     
+      "type": "microsoft.devtestlab/schedules",
+      "name": "[concat('schedules_shutdown_',variables('routerVmName'))]",
+      "apiVersion": "2016-05-15",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "status": "Enabled",
+          "taskType": "ComputeVmShutdownTask",
+          "dailyRecurrence": {
+              "time": "[parameters('ShutdownTime')]"
+          },
+          "timeZoneId": "[parameters('ShutdownTimeZone')]",
+          "notificationSettings": {
+              "status": "Disabled",
+              "timeInMinutes": 30
+          },
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"   
+      },   
+      "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
+      ]
+    },
     {
       "apiVersion": "[variables('apiVersion')]",
       "type": "Microsoft.Network/publicIPAddresses",
@@ -313,7 +345,30 @@
           }
         }
       }
-    }  
+    },
+    {     
+      "type": "microsoft.devtestlab/schedules",
+      "name": "[concat('schedules_shutdown_',variables('serverVmName'))]",
+      "apiVersion": "2016-05-15",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "status": "Enabled",
+          "taskType": "ComputeVmShutdownTask",
+          "dailyRecurrence": {
+              "time": "[parameters('ShutdownTime')]"
+          },
+          "timeZoneId": "[parameters('ShutdownTimeZone')]",
+          "notificationSettings": {
+              "status": "Disabled",
+              "timeInMinutes": 30
+          },
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('serverVmName'))]"   
+      },   
+      "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines', variables('serverVmName'))]"
+      ]
+  }  
 ],
 "outputs": {    
   }
