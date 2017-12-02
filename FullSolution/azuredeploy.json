@@ -245,7 +245,7 @@
     {
       "apiVersion": "2017-04-01",   
       "type": "Microsoft.Network/networkInterfaces",
-      "name": "[concat(variables('routerVmName'),'-NIC0')]",
+      "name": "[concat(variables('serverVmName'),'-NIC0')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
