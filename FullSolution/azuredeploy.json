@@ -24,12 +24,12 @@
         }
     },
     "ShutdownTimeZone": {
-      "devaultValue" : "Romance Standard Time",
+      "defaultValue" : "Romance Standard Time",
       "allowedValues": ["Romance Standard Time"],
       "type": "string"    
     },
     "ShutdownTime": {
-      "devaultValue" : "1900",
+      "defaultValue" : "1900",
       "type": "string"    
     }
   },
