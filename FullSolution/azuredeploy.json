@@ -80,7 +80,9 @@
     "feServerPublicIP": "[concat(parameters('envPrefixName'), variables('feServerVmName'), 'pip')]",
     "beServerVmName": "[concat(parameters('envPrefixName'), 'beserver')]",
     "beServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Backend')]",
-    "beServerPublicIP": "[concat(parameters('envPrefixName'), variables('beServerVmName'), 'pip')]"
+    "beServerPublicIP": "[concat(parameters('envPrefixName'), variables('beServerVmName'), 'pip')]",
+    "artifactsLocation": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/FullSolution/configureRouter.sh",
+    "commandToExecute":"sh configureRouter.sh"
   },
   "resources": [
     {
@@ -264,6 +266,27 @@
       "dependsOn": [
           "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
       ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('routerVmName'),'/installcustomscript')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[variables('artifactsLocation')]"
+          ],
+          "commandToExecute": "[variables('commandToExecute')]"
+        }
+      }
     },
     {
       "apiVersion": "[variables('apiVersion')]",
