@@ -1,4 +1,4 @@
-# {"fileUris":["https://mystorage.blob.core.windows.net/scripts/install_lamp.sh"], "commandToExecute":"sh install_lamp.sh" }
+# Executed with the script extension in the ARM template
 
 #sudo -i
 echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
