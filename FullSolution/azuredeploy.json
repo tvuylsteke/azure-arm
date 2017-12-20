@@ -36,6 +36,7 @@
   "variables": {
     "apiVersion": "2017-06-01",
     "diagnosticStorageAccount": "[toLower(concat(parameters('envPrefixName'), 'diagnostics'))]",
+    "nsgName": "[concat(parameters('envPrefixName'), 'NSG')]",    
     "virtualNetworkName": "[concat(parameters('envPrefixName'), 'Vnet')]",    
     "vnetAddressPrefix": "10.0.0.0/16",
     "subnets": [
@@ -85,11 +86,38 @@
     "commandToExecute":"sh configureRouter.sh"
   },
   "resources": [
+      {            
+        "type": "Microsoft.Network/networkSecurityGroups",
+        "name": "[variables('nsgName')]",
+        "apiVersion": "2017-06-01",
+        "location": "[resourceGroup().location]",        
+        "properties": {                
+            "securityRules": [
+                {
+                    "name": "Allow_SSH",                        
+                    "properties": {                            
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "destinationPortRange": "22",
+                        "sourceAddressPrefix": "Internet",
+                        "destinationAddressPrefix": "VirtualNetwork",
+                        "access": "Allow",
+                        "priority": 100,
+                        "direction": "Inbound"                                                        
+                    }
+                }
+            ]                                
+        },
+        "dependsOn": []
+    },
     {
       "apiVersion": "[variables('apiVersion')]",
       "type": "Microsoft.Network/virtualNetworks",
       "name": "[variables('virtualNetworkName')]",
       "location": "[resourceGroup().location]",
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('nsgName'))]"
+      ],
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
@@ -103,7 +131,10 @@
             "input": {
               "name": "[variables('subnets')[copyIndex('subnets')].name]",
               "properties": {
-                "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]"                
+                "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('nsgName'))]"
+                }                 
               }
             }
           }
@@ -394,8 +425,22 @@
       "dependsOn": [
           "[resourceId('Microsoft.Compute/virtualMachines', variables('feServerVmName'))]"
       ]
-  }
-  ,
+  },
+  {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+    "name": "[concat(variables('feServerVmName'),'/AzureNetworkWatcherExtension')]",
+    "apiVersion": "2015-05-01-preview",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [
+      "[resourceId('Microsoft.Compute/virtualMachines', variables('feServerVmName'))]"
+    ],
+    "properties": {
+      "publisher": "Microsoft.Azure.NetworkWatcher",
+      "type": "NetworkWatcherAgentLinux",
+      "typeHandlerVersion": "1.4",
+      "autoUpgradeMinorVersion": true      
+    }
+  },
   {
     "apiVersion": "[variables('apiVersion')]",
     "type": "Microsoft.Network/publicIPAddresses",
