@@ -67,7 +67,7 @@
         "type": "Microsoft.Web/sites",
         "location": "[variables('EULocation')]",
         "dependsOn": [
-          "[variables('hostingPlanName')]"
+          "[variables('EUhostingPlanName')]"
         ],
         "tags": {
         },
@@ -121,7 +121,7 @@
         "type": "Microsoft.Web/sites",
         "location": "[variables('USLocation')]",
         "dependsOn": [
-          "[variables('hostingPlanName')]"
+          "[variables('UShostingPlanName')]"
         ],
         "tags": {
         },
