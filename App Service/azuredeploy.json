@@ -34,7 +34,8 @@
     },
     "variables": {
       "hostingPlanName": "[concat('hostingplan', uniqueString(resourceGroup().id))]",
-      "webSiteName": "[concat('webSite', uniqueString(resourceGroup().id))]"
+      "webSiteName": "[concat('webSite', uniqueString(resourceGroup().id))]",
+      "appName": "West Europ Site"
     },
     "resources": [      
       {
@@ -67,7 +68,26 @@
           "name": "[variables('webSiteName')]",
           "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]"
         }
-      }     
+      },
+      {
+        "name": "MSDeploy",
+        "type": "extensions",
+        "location": "[resourceGroup().location]",
+        "apiVersion": "2015-08-01",
+        "dependsOn": [
+          "[resourceId('Microsoft.Web/sites', variables('webSiteName'))]"
+        ],
+        "properties": {
+            "packageUri": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/App Service/wwwroot.zip",
+            "dbType": "None",
+            "connectionString": "",
+            "AppOffline": true,
+            "SkipAppData": true,
+            "setParameters": {
+                "IIS Web Application Name": "[variables('appName')]"
+            }
+        }
+       }     
     ],
     "outputs": {
     }
