@@ -33,6 +33,7 @@
       }      
     },
     "variables": {
+      "EUwebSitePackage":"https://github.com/tvuylsteke/azure-arm/raw/master/App%20Service/wwwroot.zip",
       "hostingPlanName": "[concat('hostingplan', uniqueString(resourceGroup().id))]",
       "webSiteName": "[concat('webSite', uniqueString(resourceGroup().id))]",
       "appName": "West Europ Site"
@@ -78,7 +79,7 @@
           "[resourceId('Microsoft.Web/sites', variables('webSiteName'))]"
         ],
         "properties": {
-            "packageUri": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/App Service/wwwroot.zip",
+            "packageUri": "[variables('EUwebSitePackage')]",
             "dbType": "None",
             "connectionString": "",
             "AppOffline": true,
