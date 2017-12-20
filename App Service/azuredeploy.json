@@ -34,13 +34,13 @@
     },
     "variables": {
       "EUwebSitePackage":"https://github.com/tvuylsteke/azure-arm/raw/master/App%20Service/europe.zip",
-      "EUhostingPlanName": "[concat('hostingplan', uniqueString(subscription().subscriptionId))]",
-      "EUwebSiteName": "[concat('webSite', uniqueString(subscription().subscriptionId))]",
+      "EUhostingPlanName": "[concat('tm-web-plan-eu-', uniqueString(subscription().subscriptionId))]",
+      "EUwebSiteName": "[concat('tm-web-app-eu-', uniqueString(subscription().subscriptionId))]",
       "EUappName": "Europe Site",
       "EULocation": "West Europe",
       "USwebSitePackage":"https://github.com/tvuylsteke/azure-arm/raw/master/App%20Service/unitedstates.zip",
-      "UShostingPlanName": "[concat('hostingplan', uniqueString(subscription().subscriptionId))]",
-      "USwebSiteName": "[concat('webSite', uniqueString(subscription().subscriptionId))]",
+      "UShostingPlanName": "[concat('tm-web-plan-us-', uniqueString(subscription().subscriptionId))]",
+      "USwebSiteName": "[concat('tm-web-app-us-', uniqueString(subscription().subscriptionId))]",
       "USappName": "United States Site",
       "USLocation": "Central US"
     },
