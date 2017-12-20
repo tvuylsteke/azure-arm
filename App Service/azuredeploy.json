@@ -68,27 +68,27 @@
         "properties": {
           "name": "[variables('webSiteName')]",
           "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]"
-        }
-      },
-      {
-        "name": "MSDeploy",
-        "type": "extensions",
-        "location": "[resourceGroup().location]",
-        "apiVersion": "2015-08-01",
-        "dependsOn": [
-          "[resourceId('Microsoft.Web/sites', variables('webSiteName'))]"
-        ],
-        "properties": {
-            "packageUri": "[variables('EUwebSitePackage')]",
-            "dbType": "None",
-            "connectionString": "",
-            "AppOffline": true,
-            "SkipAppData": true,
-            "setParameters": {
-                "IIS Web Application Name": "[variables('appName')]"
-            }
-        }
-       }     
+        },
+        "resources":[
+            {
+                "name": "MSDeploy",
+                "type": "Extensions",
+                "location": "[resourceGroup().location]",
+                "apiVersion": "2015-08-01",
+                "dependsOn": [
+                  "[resourceId('Microsoft.Web/sites', variables('webSiteName'))]"
+                ],
+                "properties": {
+                    "packageUri": "[variables('EUwebSitePackage')]",                    
+                    "connectionString": "",
+                    "AppOffline": true,                    
+                    "setParameters": {
+                        "IIS Web Application Name": "[variables('appName')]"
+                    }
+                }
+            }  
+        ]
+      }        
     ],
     "outputs": {
     }
