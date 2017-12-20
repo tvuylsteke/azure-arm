@@ -167,7 +167,7 @@
         "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP0'))]"        
       ],
       "properties": {
-        "enableIPForwarding": true,
+        "enableIPForwarding": false,
         "ipConfigurations": [
           {
             "name": "ipconfig1",
@@ -195,7 +195,7 @@
         "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP1'))]" 
       ],
       "properties": {
-        "enableIPForwarding": true,
+        "enableIPForwarding": false,
         "ipConfigurations": [
           {
             "name": "ipconfig1",
