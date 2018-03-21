@@ -154,6 +154,9 @@
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(variables('routerPublicIP'),'-PIP')]",
+      "sku": {
+        "name": "Basic"
+      },
       "location": "[resourceGroup().location]",     
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
@@ -283,6 +286,9 @@
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(variables('router2PublicIP'),'-PIP')]",
+      "sku": {
+        "name": "Basic"
+      },
       "location": "[resourceGroup().location]",     
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
