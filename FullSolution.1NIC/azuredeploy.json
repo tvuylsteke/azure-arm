@@ -155,7 +155,7 @@
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(variables('routerPublicIP'),'-PIP')]",
       "sku": {
-        "name": "Basic"
+        "name": "Standard"
       },
       "location": "[resourceGroup().location]",     
       "dependsOn": [ 
@@ -287,7 +287,7 @@
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(variables('router2PublicIP'),'-PIP')]",
       "sku": {
-        "name": "Basic"
+        "name": "Standard"
       },
       "location": "[resourceGroup().location]",     
       "dependsOn": [ 
