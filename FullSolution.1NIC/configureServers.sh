@@ -1,6 +1,6 @@
 # Executed with the script extension in the ARM template
-yum install epel-release
-yum install nginx
+yum -y install epel-release
+yum -y install nginx
 systemctl start nginx
 systemctl enable nginx
 cp /usr/share/nginx/html/index.html /usr/share/nginx/html/index.html.bak
