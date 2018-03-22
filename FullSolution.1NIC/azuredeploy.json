@@ -68,8 +68,8 @@
     "routerSubnetRef": "[concat(variables('vnetID'),'/subnets/','NVA')]",    
     "routerVmName": "[concat(parameters('envPrefixName'), 'nva')]",    
     "routerPublicIP": "[concat(parameters('envPrefixName'), 'nva-pip')]",    
-    "routerPrivateIp": "10.0.3.4",   
-    "routerPrivateIp2": "10.0.3.5",    
+    "routerPrivateIp0": "10.0.3.4",   
+    "routerPrivateIp1": "10.0.3.5",    
     "feServerVmName": "[concat(parameters('envPrefixName'), 'client')]",
     "feServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Client')]",
     "feServerPublicIP": "[concat(parameters('envPrefixName'), variables('feServerVmName'), 'pip')]",
@@ -148,7 +148,7 @@
           }
     },  
     {
-      "apiVersion": "2017-06-01",
+      "apiVersion": "2017-08-01",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[concat(variables('routerPublicIP'),copyIndex())]",
       "sku": {
@@ -163,7 +163,7 @@
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
       ],
       "properties": {
-          "publicIPAllocationMethod": "Dynamic"
+          "publicIPAllocationMethod": "Static"
       }
   },   
     {
@@ -177,7 +177,7 @@
       }, 
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),copyIndex()))]"        
+        "pip-copy"
       ],
       "properties": {
         "enableIPForwarding": false,
@@ -208,7 +208,7 @@
       }, 
       "location": "[resourceGroup().location]",
       "dependsOn": [        
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-nic',copyIndex()))]",        
+        "nic-copy",        
         "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
       ],
       "properties": {
@@ -271,7 +271,7 @@
           "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('routerVmName'),copyIndex()))]"   
       },   
       "dependsOn": [
-          "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
+          "vm-copy"
       ]
     },
     {
@@ -284,7 +284,7 @@
         "count": 2
       }, 
       "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('routerVmName'),copyIndex()))]"
+        "vm-copy"
       ],
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
@@ -300,7 +300,7 @@
       }
     },    
     {
-      "apiVersion": "2017-06-01",
+      "apiVersion": "2017-08-01",
       "type": "Microsoft.Network/publicIPAddresses",
       "name": "[variables('feServerPublicIP')]",
       "location": "[resourceGroup().location]",     
@@ -422,7 +422,7 @@
     }
   },
   {
-    "apiVersion": "2017-06-01",
+    "apiVersion": "2017-08-01",
     "type": "Microsoft.Network/publicIPAddresses",
     "name": "[variables('beServerPublicIP')]",
     "location": "[resourceGroup().location]",     
@@ -527,6 +527,27 @@
     "dependsOn": [
         "[resourceId('Microsoft.Compute/virtualMachines', variables('beServerVmName'))]"
     ]
+  },
+  {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+    "name": "[concat(variables('beServerVmName'),'/installcustomscript')]",
+    "apiVersion": "2015-05-01-preview",
+    "location": "[resourceGroup().location]",    
+    "dependsOn": [
+      "[resourceId('Microsoft.Compute/virtualMachines', variables('beServerVmName'))]"
+    ],
+    "properties": {
+      "publisher": "Microsoft.Azure.Extensions",
+      "type": "CustomScript",
+      "typeHandlerVersion": "2.0",
+      "autoUpgradeMinorVersion": true,
+      "settings": {
+        "fileUris": [
+          "[variables('artifactsLocation')]"
+        ],
+        "commandToExecute": "[variables('commandToExecute')]"
+      }
+    }
   }    
 ],
 "outputs": {    
