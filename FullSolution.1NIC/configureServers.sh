@@ -4,7 +4,7 @@ yum -y install nginx
 systemctl start nginx
 systemctl enable nginx
 cp /usr/share/nginx/html/index.html /usr/share/nginx/html/index.html.bak
-echo $HOSTNAME > index.html
+echo $HOSTNAME > /usr/share/nginx/html/index.html
 
 # only for the NVA
 if [[ "$HOSTNAME" =~ .*nva.* ]]; then
