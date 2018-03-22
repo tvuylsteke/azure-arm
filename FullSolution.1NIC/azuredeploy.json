@@ -35,23 +35,22 @@
   },
   "variables": {    
     "diagnosticStorageAccount": "[toLower(concat(parameters('envPrefixName'), 'diagnostics'))]",
-    "nsgName": "[concat(parameters('envPrefixName'), 'NSG')]",    
-    "virtualNetworkName": "[concat(parameters('envPrefixName'), 'Vnet')]",    
+    "nsgName": "[concat(parameters('envPrefixName'), '-nsg')]",    
+    "virtualNetworkName": "[concat(parameters('envPrefixName'), '-vnet')]",    
     "vnetAddressPrefix": "10.0.0.0/16",
     "subnets": [
             {
-                "name": "Frontend",
+                "name": "Client",
                 "addressPrefix": "10.0.1.0/24"
             },
             {
-                "name":"Backend",
+                "name":"Server",
                 "addressPrefix":"10.0.2.0/24"
             },
             {
-                "name":"Network",
+                "name":"NVA",
                 "addressPrefix":"10.0.3.0/24"
-            },
-       
+            },       
             {
                 "name":"Management",
                 "addressPrefix":"10.0.5.0/24"
@@ -66,21 +65,19 @@
     "imageVersion": "7.3",            
     "vmSize": "Standard_A2_v2",            
     "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",    
-    "routerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Network')]",    
-    "routerVmName": "[concat(parameters('envPrefixName'), 'router')]",
-    "routerPublicIP": "[concat(parameters('envPrefixName'), 'routerpip')]",    
-    "routerPrivateIp": "10.0.3.4",    
-    "router2VmName": "[concat(parameters('envPrefixName'), 'router2')]",
-    "router2PublicIP": "[concat(parameters('envPrefixName'), 'router2pip')]",    
-    "router2PrivateIp": "10.0.3.5",    
-    "feServerVmName": "[concat(parameters('envPrefixName'), 'feserver')]",
-    "feServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Frontend')]",
+    "routerSubnetRef": "[concat(variables('vnetID'),'/subnets/','NVA')]",    
+    "routerVmName": "[concat(parameters('envPrefixName'), 'nva')]",    
+    "routerPublicIP": "[concat(parameters('envPrefixName'), 'nva-pip')]",    
+    "routerPrivateIp": "10.0.3.4",   
+    "routerPrivateIp2": "10.0.3.5",    
+    "feServerVmName": "[concat(parameters('envPrefixName'), 'client')]",
+    "feServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Client')]",
     "feServerPublicIP": "[concat(parameters('envPrefixName'), variables('feServerVmName'), 'pip')]",
-    "beServerVmName": "[concat(parameters('envPrefixName'), 'beserver')]",
-    "beServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Backend')]",
+    "beServerVmName": "[concat(parameters('envPrefixName'), 'server')]",
+    "beServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Server')]",
     "beServerPublicIP": "[concat(parameters('envPrefixName'), variables('beServerVmName'), 'pip')]",
-    "artifactsLocation": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/FullSolution/configureRouter.sh",
-    "commandToExecute":"sh configureRouter.sh"
+    "artifactsLocation": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/FullSolution.1NIC/configureServers.sh",
+    "commandToExecute":"sh configureServers.sh"
   },
   "resources": [
       {            
@@ -153,11 +150,15 @@
     {
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[concat(variables('routerPublicIP'),'-PIP')]",
+      "name": "[concat(variables('routerPublicIP'),copyIndex())]",
       "sku": {
         "name": "Standard"
       },
-      "location": "[resourceGroup().location]",     
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "pip-copy",
+        "count": 2
+      },     
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
       ],
@@ -168,11 +169,15 @@
     {
       "apiVersion": "2017-04-01",   
       "type": "Microsoft.Network/networkInterfaces",
-      "name": "[concat(variables('routerVmName'),'-NIC0')]",
+      "name": "[concat(variables('routerVmName'),'-nic',copyIndex())]",
       "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "nic-copy",
+        "count": 2
+      }, 
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),'-PIP'))]"        
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('routerPublicIP'),copyIndex()))]"        
       ],
       "properties": {
         "enableIPForwarding": false,
@@ -181,9 +186,9 @@
             "name": "ipconfig1",
             "properties": {			  
               "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),'-PIP'))]"
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerPublicIP'),copyIndex()))]"
               },
-              "privateIPAddress": "[variables('routerPrivateIp')]",
+              "privateIPAddress": "[variables(concat('routerPrivateIp',copyIndex()))]",
               "PrivateIpAllocationMethod": "Static",
               "subnet": {
                 "id": "[variables('routerSubnetRef')]"
@@ -196,10 +201,14 @@
     {
       "apiVersion": "2017-03-30",
       "type": "Microsoft.Compute/virtualMachines",
-      "name": "[variables('routerVmName')]",
+      "name": "[concat(variables('routerVmName'),copyIndex())]",
+      "copy": {
+        "name": "vm-copy",
+        "count": 2
+      }, 
       "location": "[resourceGroup().location]",
       "dependsOn": [        
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-nic',copyIndex()))]",        
         "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
       ],
       "properties": {
@@ -207,7 +216,7 @@
           "vmSize": "[variables('vmSize')]"
         },
         "osProfile": {
-          "computerName": "[variables('routerVmName')]",
+          "computerName": "[concat(variables('routerVmName'),copyIndex())]",
           "adminUsername": "[parameters('username')]",
           "adminPassword": "[parameters('password')]"
         },
@@ -225,7 +234,7 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-NIC0'))]",
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),'-nic',copyIndex()))]",
               "properties": { "primary": true }
             }
           ]
@@ -240,9 +249,13 @@
     },
     {     
       "type": "microsoft.devtestlab/schedules",
-      "name": "[concat('shutdown-computevm-',variables('routerVmName'))]",
+      "name": "[concat('shutdown-computevm-',variables('routerVmName'),copyIndex())]",
       "apiVersion": "2016-05-15",
       "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "shutdownschedule-copy",
+        "count": 2
+      }, 
       "scale": null,
       "properties": {
           "status": "Enabled",
@@ -255,7 +268,7 @@
               "status": "Disabled",
               "timeInMinutes": 30
           },
-          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"   
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('routerVmName'),copyIndex()))]"   
       },   
       "dependsOn": [
           "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
@@ -263,11 +276,15 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat(variables('routerVmName'),'/installcustomscript')]",
+      "name": "[concat(variables('routerVmName'),copyIndex(),'/installcustomscript')]",
       "apiVersion": "2015-05-01-preview",
       "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "script-copy",
+        "count": 2
+      }, 
       "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('routerVmName'))]"
+        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('routerVmName'),copyIndex()))]"
       ],
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
@@ -281,139 +298,7 @@
           "commandToExecute": "[variables('commandToExecute')]"
         }
       }
-    },
-    {
-      "apiVersion": "2017-06-01",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[concat(variables('router2PublicIP'),'-PIP')]",
-      "sku": {
-        "name": "Standard"
-      },
-      "location": "[resourceGroup().location]",     
-      "dependsOn": [ 
-        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
-      ],
-      "properties": {
-          "publicIPAllocationMethod": "Dynamic"
-      }
-  },   
-    {
-      "apiVersion": "2017-04-01",   
-      "type": "Microsoft.Network/networkInterfaces",
-      "name": "[concat(variables('router2VmName'),'-NIC0')]",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [ 
-        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
-        "[resourceId('Microsoft.Network/publicIPAddresses/',  concat(variables('router2PublicIP'),'-PIP'))]"        
-      ],
-      "properties": {
-        "enableIPForwarding": false,
-        "ipConfigurations": [
-          {
-            "name": "ipconfig1",
-            "properties": {			  
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('router2PublicIP'),'-PIP'))]"
-              },
-              "privateIPAddress": "[variables('router2PrivateIp')]",
-              "PrivateIpAllocationMethod": "Static",
-              "subnet": {
-                "id": "[variables('routerSubnetRef')]"
-              }
-            }
-          }
-        ]
-      }
-    },     
-    {
-      "apiVersion": "2017-03-30",
-      "type": "Microsoft.Compute/virtualMachines",
-      "name": "[variables('router2VmName')]",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [        
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('router2VmName'),'-NIC0'))]",        
-        "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
-        },
-        "osProfile": {
-          "computerName": "[variables('router2VmName')]",
-          "adminUsername": "[parameters('username')]",
-          "adminPassword": "[parameters('password')]"
-        },
-        "storageProfile": {
-          "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
-            "sku": "[variables('imageVersion')]",
-            "version": "latest"
-          },
-          "osDisk": {
-            "createOption": "FromImage"
-          }
-        },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('router2VmName'),'-NIC0'))]",
-              "properties": { "primary": true }
-            }
-          ]
-        },
-        "diagnosticsProfile": {
-          "bootDiagnostics": {
-            "enabled": "true",
-            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
-          }
-        }
-      }
-    },
-    {     
-      "type": "microsoft.devtestlab/schedules",
-      "name": "[concat('shutdown-computevm-',variables('router2VmName'))]",
-      "apiVersion": "2016-05-15",
-      "location": "[resourceGroup().location]",
-      "scale": null,
-      "properties": {
-          "status": "Enabled",
-          "taskType": "ComputeVmShutdownTask",
-          "dailyRecurrence": {
-              "time": "[parameters('ShutdownTime')]"
-          },
-          "timeZoneId": "[parameters('ShutdownTimeZone')]",
-          "notificationSettings": {
-              "status": "Disabled",
-              "timeInMinutes": 30
-          },
-          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('router2VmName'))]"   
-      },   
-      "dependsOn": [
-          "[resourceId('Microsoft.Compute/virtualMachines', variables('router2VmName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat(variables('router2VmName'),'/installcustomscript')]",
-      "apiVersion": "2015-05-01-preview",
-      "location": "[resourceGroup().location]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('router2VmName'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Azure.Extensions",
-        "type": "CustomScript",
-        "typeHandlerVersion": "2.0",
-        "autoUpgradeMinorVersion": true,
-        "settings": {
-          "fileUris": [
-            "[variables('artifactsLocation')]"
-          ],
-          "commandToExecute": "[variables('commandToExecute')]"
-        }
-      }
-    },
+    },    
     {
       "apiVersion": "2017-06-01",
       "type": "Microsoft.Network/publicIPAddresses",
@@ -429,7 +314,7 @@
     {
       "apiVersion": "2017-04-01",   
       "type": "Microsoft.Network/networkInterfaces",
-      "name": "[concat(variables('feServerVmName'),'-NIC0')]",
+      "name": "[concat(variables('feServerVmName'),'-nic')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [ 
         "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
@@ -459,7 +344,7 @@
       "name": "[variables('feServerVmName')]",
       "location": "[resourceGroup().location]",
       "dependsOn": [        
-        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-NIC0'))]",        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-nic'))]",        
         "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
       ],
       "properties": {
@@ -485,7 +370,7 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-NIC0'))]",
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-nic'))]",
               "properties": { "primary": true }
             }
           ]
@@ -551,7 +436,7 @@
   {
     "apiVersion": "2017-04-01",   
     "type": "Microsoft.Network/networkInterfaces",
-    "name": "[concat(variables('beServerVmName'),'-NIC0')]",
+    "name": "[concat(variables('beServerVmName'),'-nic')]",
     "location": "[resourceGroup().location]",
     "dependsOn": [ 
       "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
@@ -581,7 +466,7 @@
     "name": "[variables('beServerVmName')]",
     "location": "[resourceGroup().location]",
     "dependsOn": [        
-      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-NIC0'))]",        
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-nic'))]",        
       "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
     ],
     "properties": {
@@ -607,7 +492,7 @@
       "networkProfile": {
         "networkInterfaces": [
           {
-            "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-NIC0'))]",
+            "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-nic'))]",
             "properties": { "primary": true }
           }
         ]
