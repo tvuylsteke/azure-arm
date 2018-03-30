@@ -1,0 +1,584 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "envPrefixName": {
+        "type": "string",
+        "metadata": {
+            "description": "Prefix for the environment (2-5 characters)"
+        },
+        "defaultValue": "cust1",
+        "minLength": 2,
+        "maxLength": 5
+    },
+    "username": {
+        "type": "string",
+        "metadata": {
+            "description": "IaaS VM local administrator username"
+        }
+    },
+    "password": {
+        "type": "securestring",
+        "metadata": {
+            "description": "IaaS VM local administrator password"
+        }
+    },
+    "ShutdownTimeZone": {
+      "defaultValue" : "Romance Standard Time",
+      "allowedValues": ["Romance Standard Time"],
+      "type": "string"    
+    },
+    "ShutdownTime": {
+      "defaultValue" : "1900",
+      "type": "string"    
+    }
+  },
+  "variables": {    
+    "diagnosticStorageAccount": "[toLower(concat(parameters('envPrefixName'), 'diagnostics'))]",
+    "nsgName": "[concat(parameters('envPrefixName'), '-nsg')]",    
+    "virtualNetworkName": "[concat(parameters('envPrefixName'), '-vnet')]",    
+    "vnetAddressPrefix": "10.0.0.0/16",
+    "subnets": [
+            {
+                "name": "Client",
+                "addressPrefix": "10.0.1.0/24"
+            },
+            {
+                "name":"Server",
+                "addressPrefix":"10.0.2.0/24"
+            },
+            {
+                "name":"NVA",
+                "addressPrefix":"10.0.3.0/24"
+            },       
+            {
+                "name":"Management",
+                "addressPrefix":"10.0.5.0/24"
+            },
+            {
+                "name":"GatewaySubnet",
+                "addressPrefix":"10.0.0.0/27"
+            }                      
+          ],
+    "imagePublisher": "OpenLogic",
+    "imageOffer": "CentOS",
+    "imageVersion": "7.3",            
+    "vmSize": "Standard_A2_v2",            
+    "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",    
+    "routerSubnetRef": "[concat(variables('vnetID'),'/subnets/','NVA')]",    
+    "routeTableName": "NVA RouteTable",
+    "routerVmName": "[concat(parameters('envPrefixName'), 'nva')]",        
+    "routerPrivateIp0": "10.0.3.4",   
+    "routerPrivateIp1": "10.0.3.5",
+    "routerPrivateVIP": "10.0.3.10",
+    "feServerVmName": "[concat(parameters('envPrefixName'), 'client')]",
+    "feServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Client')]",
+    "feServerPublicIP": "[concat(parameters('envPrefixName'), variables('feServerVmName'), 'pip')]",
+    "beServerVmName": "[concat(parameters('envPrefixName'), 'server')]",
+    "beServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Server')]",
+    "beServerPublicIP": "[concat(parameters('envPrefixName'), variables('beServerVmName'), 'pip')]",
+    "artifactsLocation": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/FullSolution.1NIC/configureServers.sh",
+    "commandToExecute":"sh configureServers.sh"
+  },
+  "resources": [
+      {            
+        "type": "Microsoft.Network/networkSecurityGroups",
+        "name": "[variables('nsgName')]",
+        "apiVersion": "2017-06-01",
+        "location": "[resourceGroup().location]",        
+        "properties": {                
+            "securityRules": [
+                {
+                    "name": "Allow_SSH",                        
+                    "properties": {                            
+                        "protocol": "Tcp",
+                        "sourcePortRange": "*",
+                        "destinationPortRange": "22",
+                        "sourceAddressPrefix": "Internet",
+                        "destinationAddressPrefix": "VirtualNetwork",
+                        "access": "Allow",
+                        "priority": 100,
+                        "direction": "Inbound"                                                        
+                    }
+                }
+            ]                                
+        },
+        "dependsOn": []
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/routeTables",
+      "name": "[variables('routeTableName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {        
+      },
+      "properties": {
+        "routes": [
+          {
+            "name": "RouteToClient",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "nextHopType": "VirtualAppliance",
+              "nextHopIpAddress": "[variables('routerPrivateVIP')]"
+            }
+          },
+          {
+            "name": "RouteToServer",
+            "properties": {
+              "addressPrefix": "10.0.2.0/24",
+              "nextHopType": "VirtualAppliance",
+              "nextHopIpAddress": "[variables('routerPrivateVIP')]"
+            }
+          }
+        ]
+      }
+  },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetAddressPrefix')]"
+          ]
+        },
+        "copy": [
+          {
+            "name": "subnets",
+            "count": "[length(variables('subnets'))]",
+            "input": {
+              "name": "[variables('subnets')[copyIndex('subnets')].name]",
+              "properties": {
+                "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('nsgName'))]"
+                }                 
+              }
+            }
+          }
+        ]        
+      }
+    }, 
+    {      
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('diagnosticStorageAccount')]",
+      "apiVersion": "2016-01-01",
+          "location": "[resourceGroup().location]",
+          "sku": {
+              "name": "Standard_LRS"
+          },
+          "kind": "Storage",
+          "properties": {
+          }
+    },  
+    {
+      "apiVersion": "2017-08-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[concat(variables('routerVmName'),copyIndex(),'-pip')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "pip-copy",
+        "count": 2
+      },     
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+          "publicIPAllocationMethod": "Static"
+      }
+  },   
+    {
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('routerVmName'),copyIndex(),'-nic')]",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "nic-copy",
+        "count": 2
+      }, 
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "pip-copy"
+      ],
+      "properties": {
+        "enableIPForwarding": false,
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {			  
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', concat(variables('routerVmName'),copyIndex(),'-pip'))]"
+              },
+              "privateIPAddress": "[variables(concat('routerPrivateIp',copyIndex()))]",
+              "PrivateIpAllocationMethod": "Static",
+              "subnet": {
+                "id": "[variables('routerSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },     
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(variables('routerVmName'),copyIndex())]",
+      "copy": {
+        "name": "vm-copy",
+        "count": 2
+      }, 
+      "location": "[resourceGroup().location]",
+      "dependsOn": [        
+        "nic-copy",        
+        "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('routerVmName'),copyIndex())]",
+          "adminUsername": "[parameters('username')]",
+          "adminPassword": "[parameters('password')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('routerVmName'),copyIndex(),'-nic'))]",
+              "properties": { "primary": true }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+          }
+        }
+      }
+    },
+    {     
+      "type": "microsoft.devtestlab/schedules",
+      "name": "[concat('shutdown-computevm-',variables('routerVmName'),copyIndex())]",
+      "apiVersion": "2016-05-15",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "shutdownschedule-copy",
+        "count": 2
+      }, 
+      "scale": null,
+      "properties": {
+          "status": "Enabled",
+          "taskType": "ComputeVmShutdownTask",
+          "dailyRecurrence": {
+              "time": "[parameters('ShutdownTime')]"
+          },
+          "timeZoneId": "[parameters('ShutdownTimeZone')]",
+          "notificationSettings": {
+              "status": "Disabled",
+              "timeInMinutes": 30
+          },
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('routerVmName'),copyIndex()))]"   
+      },   
+      "dependsOn": [
+          "vm-copy"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('routerVmName'),copyIndex(),'/installcustomscript')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[resourceGroup().location]",
+      "copy": {
+        "name": "script-copy",
+        "count": 2
+      }, 
+      "dependsOn": [
+        "vm-copy"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[variables('artifactsLocation')]"
+          ],
+          "commandToExecute": "[variables('commandToExecute')]"
+        }
+      }
+    },    
+    {
+      "apiVersion": "2017-08-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('feServerPublicIP')]",
+      "location": "[resourceGroup().location]",     
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+          "publicIPAllocationMethod": "Dynamic"
+      }
+  },   
+    {
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('feServerVmName'),'-nic')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  variables('feServerPublicIP'))]"        
+      ],
+      "properties": {
+        "enableIPForwarding": false,
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {			  
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('feServerPublicIP'))]"
+              },              
+              "PrivateIpAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('feServerSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('feServerVmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-nic'))]",        
+        "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('feServerVmName')]",
+          "adminUsername": "[parameters('username')]",
+          "adminPassword": "[parameters('password')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('feServerVmName'),'-nic'))]",
+              "properties": { "primary": true }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+          }
+        }
+      }
+    },
+    {     
+      "type": "microsoft.devtestlab/schedules",
+      "name": "[concat('shutdown-computevm-',variables('feServerVmName'))]",
+      "apiVersion": "2016-05-15",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "status": "Enabled",
+          "taskType": "ComputeVmShutdownTask",
+          "dailyRecurrence": {
+              "time": "[parameters('ShutdownTime')]"
+          },
+          "timeZoneId": "[parameters('ShutdownTimeZone')]",
+          "notificationSettings": {
+              "status": "Disabled",
+              "timeInMinutes": 30
+          },
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('feServerVmName'))]"   
+      },   
+      "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines', variables('feServerVmName'))]"
+      ]
+  },
+  {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+    "name": "[concat(variables('feServerVmName'),'/AzureNetworkWatcherExtension')]",
+    "apiVersion": "2015-05-01-preview",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [
+      "[resourceId('Microsoft.Compute/virtualMachines', variables('feServerVmName'))]"
+    ],
+    "properties": {
+      "publisher": "Microsoft.Azure.NetworkWatcher",
+      "type": "NetworkWatcherAgentLinux",
+      "typeHandlerVersion": "1.4",
+      "autoUpgradeMinorVersion": true      
+    }
+  },
+  {
+    "apiVersion": "2017-08-01",
+    "type": "Microsoft.Network/publicIPAddresses",
+    "name": "[variables('beServerPublicIP')]",
+    "location": "[resourceGroup().location]",     
+    "dependsOn": [ 
+      "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+    ],
+    "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+    }
+},   
+  {
+    "apiVersion": "2017-04-01",   
+    "type": "Microsoft.Network/networkInterfaces",
+    "name": "[concat(variables('beServerVmName'),'-nic')]",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [ 
+      "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+      "[resourceId('Microsoft.Network/publicIPAddresses/',  variables('beServerPublicIP'))]"        
+    ],
+    "properties": {
+      "enableIPForwarding": false,
+      "ipConfigurations": [
+        {
+          "name": "ipconfig1",
+          "properties": {			  
+            "publicIPAddress": {
+              "id": "[resourceId('Microsoft.Network/publicIPAddresses/', variables('beServerPublicIP'))]"
+            },              
+            "PrivateIpAllocationMethod": "Dynamic",
+            "subnet": {
+              "id": "[variables('beServerSubnetRef')]"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "2017-03-30",
+    "type": "Microsoft.Compute/virtualMachines",
+    "name": "[variables('beServerVmName')]",
+    "location": "[resourceGroup().location]",
+    "dependsOn": [        
+      "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-nic'))]",        
+      "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
+    ],
+    "properties": {
+      "hardwareProfile": {
+        "vmSize": "[variables('vmSize')]"
+      },
+      "osProfile": {
+        "computerName": "[variables('beServerVmName')]",
+        "adminUsername": "[parameters('username')]",
+        "adminPassword": "[parameters('password')]"
+      },
+      "storageProfile": {
+        "imageReference": {
+          "publisher": "[variables('imagePublisher')]",
+          "offer": "[variables('imageOffer')]",
+          "sku": "[variables('imageVersion')]",
+          "version": "latest"
+        },
+        "osDisk": {
+          "createOption": "FromImage"
+        }
+      },
+      "networkProfile": {
+        "networkInterfaces": [
+          {
+            "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('beServerVmName'),'-nic'))]",
+            "properties": { "primary": true }
+          }
+        ]
+      },
+      "diagnosticsProfile": {
+        "bootDiagnostics": {
+          "enabled": "true",
+          "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+        }
+      }
+    }
+  },
+  {     
+    "type": "microsoft.devtestlab/schedules",
+    "name": "[concat('shutdown-computevm-',variables('beServerVmName'))]",
+    "apiVersion": "2016-05-15",
+    "location": "[resourceGroup().location]",
+    "scale": null,
+    "properties": {
+        "status": "Enabled",
+        "taskType": "ComputeVmShutdownTask",
+        "dailyRecurrence": {
+            "time": "[parameters('ShutdownTime')]"
+        },
+        "timeZoneId": "[parameters('ShutdownTimeZone')]",
+        "notificationSettings": {
+            "status": "Disabled",
+            "timeInMinutes": 30
+        },
+        "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('beServerVmName'))]"   
+    },   
+    "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('beServerVmName'))]"
+    ]
+  },
+  {
+    "type": "Microsoft.Compute/virtualMachines/extensions",
+    "name": "[concat(variables('beServerVmName'),'/installcustomscript')]",
+    "apiVersion": "2015-05-01-preview",
+    "location": "[resourceGroup().location]",    
+    "dependsOn": [
+      "[resourceId('Microsoft.Compute/virtualMachines', variables('beServerVmName'))]"
+    ],
+    "properties": {
+      "publisher": "Microsoft.Azure.Extensions",
+      "type": "CustomScript",
+      "typeHandlerVersion": "2.0",
+      "autoUpgradeMinorVersion": true,
+      "settings": {
+        "fileUris": [
+          "[variables('artifactsLocation')]"
+        ],
+        "commandToExecute": "[variables('commandToExecute')]"
+      }
+    }
+  }    
+],
+"outputs": {    
+  }
+}
