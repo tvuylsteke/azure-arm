@@ -137,9 +137,7 @@
           "ipConfigurations": [
             {
               "name": "ipconfig1",
-              "properties": {			  
-                "publicIPAddress": {                  
-                },              
+              "properties": {
                 "PrivateIpAllocationMethod": "Dynamic",
                 "subnet": {
                   "id": "[variables('webServerSubnetRef')]"
@@ -253,9 +251,7 @@
         "ipConfigurations": [
           {
             "name": "ipconfig1",
-            "properties": {			  
-              "publicIPAddress": {                
-              },              
+            "properties": {	         
               "PrivateIpAllocationMethod": "Dynamic",
               "subnet": {
                 "id": "[variables('appServerSubnetRef')]"
