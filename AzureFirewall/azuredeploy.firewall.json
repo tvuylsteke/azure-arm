@@ -1,0 +1,463 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "_artifactsLocation": {
+            "type": "string",
+            "metadata": {
+                "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
+            },
+            "defaultValue": "https://raw.githubusercontent.com/tvuylsteke/azure-arm/master/AzureFirewall/"
+        },
+        "envPrefixName": {
+          "type": "string",
+          "metadata": {
+              "description": "Prefix for the environment (2-5 characters)"
+          },
+          "defaultValue": "cust1",
+          "minLength": 2,
+          "maxLength": 5
+      },
+      "username": {
+          "type": "string",
+          "metadata": {
+              "description": "IaaS VM local administrator username"
+          }
+      },
+      "password": {
+          "type": "securestring",
+          "metadata": {
+              "description": "IaaS VM local administrator password"
+          }
+      },
+      "ShutdownTimeZone": {
+        "defaultValue" : "Romance Standard Time",
+        "allowedValues": ["Romance Standard Time"],
+        "type": "string"    
+      },
+      "ShutdownTime": {
+        "defaultValue" : "1900",
+        "type": "string"    
+      }
+    },
+    "variables": {
+      "apiVersion": "2017-06-01",
+      "diagnosticStorageAccount": "[toLower(concat(parameters('envPrefixName'), 'diagnostics'))]",
+      "nsgName": "[concat(parameters('envPrefixName'), 'NSG')]",    
+      "virtualNetworkName": "[concat(parameters('envPrefixName'), 'Vnet')]",    
+      "vnetAddressPrefix": "10.0.0.0/16",
+      "subnets": [
+              {
+                  "name": "AzureFirewallSubnet",
+                  "addressPrefix": "10.0.1.0/24"
+              },
+              {
+                  "name":"Web",
+                  "addressPrefix":"10.0.2.0/24"
+              },
+              {
+                  "name":"Application",
+                  "addressPrefix":"10.0.3.0/24"
+              },
+              {
+                  "name":"Data",
+                  "addressPrefix":"10.0.4.0/24"
+              },          
+              {
+                  "name":"Management",
+                  "addressPrefix":"10.0.5.0/24"
+              },
+              {
+                  "name":"GatewaySubnet",
+                  "addressPrefix":"10.0.0.0/27"
+              }                      
+            ],
+      "imagePublisher": "MicrosoftWindowsServer",
+      "imageOffer": "WindowsServer",
+      "imageVersion": "2016-Datacenter",            
+      "vmSize": "Standard_B2s",            
+      "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",    
+      "webServerVmName": "[concat(parameters('envPrefixName'), 'webServer')]",
+      "webServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Web')]",      
+      "appServerVmName": "[concat(parameters('envPrefixName'), 'appServer')]",
+      "appServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Application')]",
+      "modulesUrl": "[concat(parameters('_artifactsLocation'), 'webserverconfig.ps1.zip')]",
+      "configurationFunction": "WebServerConfig.ps1\\WebServerConfig",
+      "firewallName": "[concat(parameters('envPrefixName'), 'Firewall')]",
+      "firewallPublicIP": "[concat(variables('firewallName'), '-pip')]",
+      "firewallSubnetRef": "[concat(variables('vnetID'),'/subnets/','AzureFirewallSubnet')]"
+    },
+    "resources": [       
+      {
+        "apiVersion": "[variables('apiVersion')]",
+        "type": "Microsoft.Network/virtualNetworks",
+        "name": "[variables('virtualNetworkName')]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [           
+        ],
+        "properties": {
+          "addressSpace": {
+            "addressPrefixes": [
+              "[variables('vnetAddressPrefix')]"
+            ]
+          },
+          "copy": [
+            {
+              "name": "subnets",
+              "count": "[length(variables('subnets'))]",
+              "input": {
+                "name": "[variables('subnets')[copyIndex('subnets')].name]",
+                "properties": {
+                  "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]"            
+                }
+              }
+            }
+          ]        
+        }
+      }, 
+      {      
+        "type": "Microsoft.Storage/storageAccounts",
+        "name": "[variables('diagnosticStorageAccount')]",
+        "apiVersion": "2016-01-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage",
+            "properties": {
+            }
+      },         
+      {
+        "apiVersion": "2017-04-01",   
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "[concat(variables('webServerVmName'),'-NIC0')]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [ 
+          "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"          
+        ],
+        "properties": {
+          "enableIPForwarding": false,
+          "ipConfigurations": [
+            {
+              "name": "ipconfig1",
+              "properties": {
+                "PrivateIpAllocationMethod": "Dynamic",
+                "subnet": {
+                  "id": "[variables('webServerSubnetRef')]"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "apiVersion": "2017-03-30",
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "[variables('webServerVmName')]",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [        
+          "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('webServerVmName'),'-NIC0'))]",        
+          "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
+        ],
+        "properties": {
+          "hardwareProfile": {
+            "vmSize": "[variables('vmSize')]"
+          },
+          "osProfile": {
+            "computerName": "[variables('webServerVmName')]",
+            "adminUsername": "[parameters('username')]",
+            "adminPassword": "[parameters('password')]"
+          },
+          "storageProfile": {
+            "imageReference": {
+              "publisher": "[variables('imagePublisher')]",
+              "offer": "[variables('imageOffer')]",
+              "sku": "[variables('imageVersion')]",
+              "version": "latest"
+            },
+            "osDisk": {
+              "createOption": "FromImage"
+            }
+          },
+          "networkProfile": {
+            "networkInterfaces": [
+              {
+                "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('webServerVmName'),'-NIC0'))]",
+                "properties": { "primary": true }
+              }
+            ]
+          },
+          "diagnosticsProfile": {
+            "bootDiagnostics": {
+              "enabled": "true",
+              "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+            }
+          }
+        },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "CustomScriptExtension",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', variables('webServerVmName'))]"            
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.8",
+            "autoUpgradeMinorVersion": true,
+            "settings": {             
+              "commandToExecute": "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False"
+            }
+          }
+        }
+      ]
+      },
+      {     
+        "type": "microsoft.devtestlab/schedules",
+        "name": "[concat('shutdown-computevm-',variables('webServerVmName'))]",
+        "apiVersion": "2016-05-15",
+        "location": "[resourceGroup().location]",
+        "scale": null,
+        "properties": {
+            "status": "Enabled",
+            "taskType": "ComputeVmShutdownTask",
+            "dailyRecurrence": {
+                "time": "[parameters('ShutdownTime')]"
+            },
+            "timeZoneId": "[parameters('ShutdownTimeZone')]",
+            "notificationSettings": {
+                "status": "Disabled",
+                "timeInMinutes": 30
+            },
+            "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('webServerVmName'))]"   
+        },   
+        "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', variables('webServerVmName'))]"
+        ]
+    },
+    {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "[concat(variables('webServerVmName'),'/dscExtension')]",
+        "apiVersion": "2017-03-30",
+        "location": "[resourceGroup().location]",
+        "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', variables('webServerVmName'))]"
+        ],
+        "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.19",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+                "ModulesUrl": "[variables('modulesUrl')]",
+                "SasToken": "",
+                "ConfigurationFunction": "[variables('configurationFunction')]",
+                "wmfVersion": "5.0",
+                "Properties": {}
+            },
+            "protectedSettings": {}
+        }
+    }, 
+    {
+      "apiVersion": "2017-04-01",   
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('appServerVmName'),'-NIC0')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"      
+      ],
+      "properties": {
+        "enableIPForwarding": false,
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {	         
+              "PrivateIpAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('appServerSubnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('appServerVmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [        
+        "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('appServerVmName'),'-NIC0'))]",        
+        "[resourceId('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount'))]"        
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('appServerVmName')]",
+          "adminUsername": "[parameters('username')]",
+          "adminPassword": "[parameters('password')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces/', concat(variables('appServerVmName'),'-NIC0'))]",
+              "properties": { "primary": true }
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('diagnosticStorageAccount')), '2016-01-01').primaryEndpoints.blob)]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "CustomScriptExtension",
+          "apiVersion": "2017-03-30",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', variables('appServerVmName'))]"            
+          ],
+          "properties": {
+            "publisher": "Microsoft.Compute",
+            "type": "CustomScriptExtension",
+            "typeHandlerVersion": "1.8",
+            "autoUpgradeMinorVersion": true,
+            "settings": {             
+              "commandToExecute": "Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False"
+            }
+          }
+        }
+      ]
+    },
+    {     
+      "type": "microsoft.devtestlab/schedules",
+      "name": "[concat('shutdown-computevm-',variables('appServerVmName'))]",
+      "apiVersion": "2016-05-15",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "status": "Enabled",
+          "taskType": "ComputeVmShutdownTask",
+          "dailyRecurrence": {
+              "time": "[parameters('ShutdownTime')]"
+          },
+          "timeZoneId": "[parameters('ShutdownTimeZone')]",
+          "notificationSettings": {
+              "status": "Disabled",
+              "timeInMinutes": 30
+          },
+          "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', variables('appServerVmName'))]"   
+      },   
+      "dependsOn": [
+          "[resourceId('Microsoft.Compute/virtualMachines', variables('appServerVmName'))]"
+      ]
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('firewallPublicIP')]",
+      "location": "[resourceGroup().location]",     
+      "dependsOn": [ 
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+          "publicIPAllocationMethod": "Dynamic"
+      }
+    },   
+    {
+      "apiVersion": "2018-06-01",
+      "type": "Microsoft.Network/azureFirewalls",
+      "name": "[variables('firewallName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",      
+        "[resourceId('Microsoft.Network/publicIPAddresses/',  variables('firewallPublicIP'))]"           
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "IpConf",
+            "properties" : {
+              "subnet": {
+                "id": "[variables('firewallSubnetRef')]"
+              },
+              "InternalPublicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses/',  variables('firewallPublicIP'))]"
+              }
+            }
+          }
+        ],
+        "applicationRuleCollections": [
+          {
+            "name": "appRc1",
+            "properties": {
+              "priority": 101,
+              "action": {"type": "Allow"},
+              "rules": [
+                {
+                  "name": "Microsoft.com",
+                  "protocols": [{"port": "80", "protocolType": "http"}, {"port": "443", "protocolType": "https"}],
+                  "targetUrls": ["*microsoft.com"]
+                }
+              ]
+            }
+          }
+        ],
+        "networkRuleCollections": [
+          {
+            "name": "netRc1",
+            "properties": {                    
+              "priority": 200,
+              "action":  { "type":  "Allow"},
+              "rules": [
+                {
+                  "name": "App-to-Web.RDP",
+                  "protocols": ["TCP"],
+                  "sourceAddresses": ["10.0.3.0/24"],
+                  "destinationAddresses": ["10.0.2.0/24"],
+                  "destinationPorts": ["3389"]
+                },
+                {
+                  "name": "App-to-Web.HTTP",
+                  "protocols": ["TCP"],
+                  "sourceAddresses": ["10.0.3.0/24"],
+                  "destinationAddresses": ["10.0.2.0/24"],
+                  "destinationPorts": ["80"]
+                },
+                {
+                  "name": "App-to-Web.ICMP",
+                  "protocols": ["ICMP"],
+                  "sourceAddresses": ["10.0.3.0/24"],
+                  "destinationAddresses": ["10.0.2.0/24"],
+                  "destinationPorts": ["*"]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+ ],
+  "outputs": {    
+    }
+  }
