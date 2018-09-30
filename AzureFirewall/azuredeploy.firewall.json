@@ -72,6 +72,7 @@
                   "addressPrefix":"10.0.0.0/27"
               }                      
             ],
+      "firewallIP": "10.0.1.4",
       "imagePublisher": "MicrosoftWindowsServer",
       "imageOffer": "WindowsServer",
       "imageVersion": "2016-Datacenter",            
@@ -83,17 +84,45 @@
       "appServerSubnetRef": "[concat(variables('vnetID'),'/subnets/','Application')]",
       "modulesUrl": "[concat(parameters('_artifactsLocation'), 'webserverconfig.ps1.zip')]",
       "configurationFunction": "WebServerConfig.ps1\\WebServerConfig",
+      "routeTableName": "[concat(parameters('envPrefixName'), 'AzFw-RT')]",
       "firewallName": "[concat(parameters('envPrefixName'), 'Firewall')]",
       "firewallPublicIP": "[concat(variables('firewallName'), '-pip')]",
       "firewallSubnetRef": "[concat(variables('vnetID'),'/subnets/','AzureFirewallSubnet')]"
     },
     "resources": [       
       {
+        "type": "Microsoft.Network/routeTables",
+        "name": "[variables('routeTableName')]",
+        "apiVersion": "2015-06-15",
+        "location": "[resourceGroup().location]",
+        "properties": {
+          "routes": [
+            {
+              "name": "Internet",
+              "properties": {
+                "addressPrefix": "0.0.0.0/0",
+                "nextHopType": "VirtualAppliance",
+                "nextHopIpAddress": "[variables('firewallIP')]"
+              }
+            },
+            {
+              "name": "VNET",
+              "properties": {
+                "addressPrefix": "[variables('vnetAddressPrefix')]",
+                "nextHopType": "VirtualAppliance",
+                "nextHopIpAddress": "[variables('firewallIP')]"
+              }
+            }
+          ]
+        }
+      },
+      {
         "apiVersion": "[variables('apiVersion')]",
         "type": "Microsoft.Network/virtualNetworks",
         "name": "[variables('virtualNetworkName')]",
         "location": "[resourceGroup().location]",
-        "dependsOn": [           
+        "dependsOn": [
+            "[resourceId('Microsoft.Network/routeTables/', variables('routeTableName'))]"                         
         ],
         "properties": {
           "addressSpace": {
@@ -108,7 +137,10 @@
               "input": {
                 "name": "[variables('subnets')[copyIndex('subnets')].name]",
                 "properties": {
-                  "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]"            
+                  "addressPrefix": "[variables('subnets')[copyIndex('subnets')].addressPrefix]",
+                  "routeTable": {
+                    "id": "[if(or((equals(variables('subnets')[copyIndex('subnets')].name,'Web'),(equals(variables('subnets')[copyIndex('subnets')].name,'Application'))),resourceId('Microsoft.Network/routeTables', variables('routeTableName')),json('null'))]"
+                  }            
                 }
               }
             }
